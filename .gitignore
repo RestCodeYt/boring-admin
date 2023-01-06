@@ -131,3 +131,6 @@ dmypy.json
 # Generated
 *.json
 .env
+
+# Boring Admin specific
+settings.json

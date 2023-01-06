@@ -1,7 +1,7 @@
-import os
+import os, json
 
 import discord
-from discord import Interaction, Member, Message, app_commands
+from discord import Interaction, Member, Message, app_commands, Embed, Color
 from discord.utils import get
 from dotenv import load_dotenv
 
@@ -36,14 +36,37 @@ class BoringAdmin(discord.Client):
 bot = BoringAdmin(intents=intents)
 
 # Command variables
-use_autorole = True
-
-use_logging = True
 logging_channel = 1060665813968892035 # customise
 
+settings_file = 'settings.json'
+
+# Default, before updating
+settings = {
+    'autorole': True,
+    'logging': True
+}
+
 # Utility
+def check_settings():
+    global settings
+
+    # Init first run
+    if not os.path.isfile(settings_file):
+        with open(settings_file, 'w') as f:
+            f.write(json.dumps(settings))
+
+    else:
+        with open(settings_file, 'r') as f:
+            settings = json.loads(f.read())
+
+def save_settings():
+    with open(settings_file, 'w') as f:
+        f.write(json.dumps(settings))
+
 async def log(message: str, ignore_state: bool = False):
-    if use_logging or ignore_state:
+    global settings
+
+    if settings['logging'] or ignore_state:
         await bot.get_channel(logging_channel).send(message)
 
 async def is_admin(interaction: Interaction):
@@ -57,6 +80,7 @@ async def is_admin(interaction: Interaction):
 # Events
 @bot.event
 async def on_ready():
+    check_settings()
     print('The Boring Admin bot is back to moderating..')
 
 @bot.event
@@ -90,7 +114,9 @@ async def on_message_edit(beforeMessage: Message, afterMessage: Message):
 
 @bot.event
 async def on_member_join(member: Member):
-    if use_autorole:
+    global settings
+
+    if settings['autorole']:
         role = get(member.guild.roles, name="Member")
 
         await member.add_roles(role)
@@ -101,10 +127,12 @@ async def toggle_autorole(interaction: Interaction):
     if not await is_admin(interaction):
         return
 
-    global use_autorole
-    use_autorole = not use_autorole
+    global settings
+    settings['autorole'] = not settings['autorole']
 
-    log_msg = f"✅ Autorole is now {'disabled' if not use_autorole else 'enabled'}!"
+    save_settings()
+
+    log_msg = f"✅ Autorole is now {'enabled' if settings['autorole'] else 'disabled'}!"
     
     await log(log_msg)
 
@@ -115,14 +143,29 @@ async def toggle_logging(interaction: Interaction):
     if not await is_admin(interaction):
         return
 
-    global use_logging
-    use_logging = not use_logging
+    global settings
+    settings['logging'] = not settings['logging']
 
-    log_msg = f"✅ Logging is now {'disabled' if not use_logging else 'enabled'}!"
+    save_settings()
+
+    log_msg = f"✅ Logging is now {'enabled' if settings['logging'] else 'disabled'}!"
 
     # Override state to inform either way
     await log(log_msg, True)
 
     await interaction.response.send_message(log_msg, ephemeral=True)
+
+@bot.tree.command()
+async def status(interaction: Interaction):
+    if not await is_admin(interaction):
+        return
+
+    global settings
+
+    embed = Embed(color=Color.red())
+    embed.add_field(name = 'AutoRole', value = 'Enabled' if settings['autorole'] else 'Disabled')
+    embed.add_field(name = 'Logging', value = 'Enabled' if settings['logging'] else 'Disabled')
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 bot.run(os.getenv('TOKEN'))
