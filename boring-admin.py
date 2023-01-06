@@ -41,17 +41,28 @@ async def on_message(message: Message):
     # GM || GN channels
     # Only gm / gm, previous message mustn't be from the same user
     previous_messages: list[Message] = [message async for message in message.channel.history(limit=2)]
-    has_previous_message = previous_messages[1].author.id == message.author.id
+    has_previous_message = previous_messages[1].author.id == message.author.id if len(previous_messages) > 1 else False
 
     if message.channel.name == 'gn':
         if message.content != 'gn' or has_previous_message:
             await message.delete()
 
-    if message.channel.name == 'gm':
+    elif message.channel.name == 'gm':
         if message.content != 'gm' or has_previous_message:
             await message.delete()
 
-    await bot.process_commands(message)
+    else:
+        await bot.process_commands(message)
+
+@bot.event
+async def on_message_edit(beforeMessage: Message, afterMessage: Message):
+    if afterMessage.channel.name == 'gn':
+        if afterMessage.content != 'gn':
+            await afterMessage.delete()
+
+    if afterMessage.channel.name == 'gm':
+        if afterMessage.content != 'gm':
+            await afterMessage.delete()
 
 @bot.event
 async def on_command_error(error: CommandError, ctx: Message):
