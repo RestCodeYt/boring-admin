@@ -33,6 +33,27 @@ async def on_ready():
     print('The Boring Admin bot is back to moderating..')
 
 @bot.event
+async def on_message(message: Message):
+    # Self bot
+    if message.author.id == bot.user.id:
+        return
+
+    # GM || GN channels
+    # Only gm / gm, previous message mustn't be from the same user
+    previous_messages: list[Message] = [message async for message in message.channel.history(limit=2)]
+    has_previous_message = previous_messages[1].author.id == message.author.id
+
+    if message.channel.name == 'gn':
+        if message.content != 'gn' or has_previous_message:
+            await message.delete()
+
+    if message.channel.name == 'gm':
+        if message.content != 'gm' or has_previous_message:
+            await message.delete()
+
+    await bot.process_commands(message)
+
+@bot.event
 async def on_command_error(error: CommandError, ctx: Message):
     # Ignore known errors
     if isinstance(error, MissingRole):
