@@ -47,7 +47,7 @@ settings = {
 }
 
 # Utility
-def check_settings():
+def check_settings() -> None:
     global settings
 
     # Init first run
@@ -59,23 +59,36 @@ def check_settings():
         with open(settings_file, 'r') as f:
             settings = json.loads(f.read())
 
-def save_settings():
+def save_settings() -> None:
     with open(settings_file, 'w') as f:
         f.write(json.dumps(settings))
 
-async def log(message: str, ignore_state: bool = False):
+async def log(message: str, ignore_state: bool = False) -> None:
     global settings
 
     if settings['logging'] or ignore_state:
         await bot.get_channel(logging_channel).send(message)
 
-async def is_admin(interaction: Interaction):
+async def is_admin(interaction: Interaction) -> bool:
     role = discord.utils.find(lambda r: r.name == 'Admin', interaction.guild.roles)
 
     if not role in interaction.user.roles:
         await interaction.response.send_message('You aren\'t an admin!', ephemeral=True)
         return False
     return True
+
+def create_embed(title: str, names: list, values: list) -> str:
+    embed = Embed(title=title, color=Color.gold())
+
+    for i, name in enumerate(names):
+        embed.add_field(name=name, value=values[i])
+
+    embed.set_footer(text='From your Boring Admin', icon_url='https://avatars.githubusercontent.com/u/118185179?v=4')
+    
+    return embed
+
+def get_toggle_text(value: bool) -> str:
+    return 'Enabled' if value else 'Disabled'
 
 # Events
 @bot.event
@@ -132,7 +145,7 @@ async def toggle_autorole(interaction: Interaction):
 
     save_settings()
 
-    log_msg = f"✅ Autorole is now {'enabled' if settings['autorole'] else 'disabled'}!"
+    log_msg = f"✅ Autorole is now {get_toggle_text(settings['autorole'])}!"
     
     await log(log_msg)
 
@@ -148,7 +161,7 @@ async def toggle_logging(interaction: Interaction):
 
     save_settings()
 
-    log_msg = f"✅ Logging is now {'enabled' if settings['logging'] else 'disabled'}!"
+    log_msg = f"✅ Logging is now {get_toggle_text(settings['logging'])}!"
 
     # Override state to inform either way
     await log(log_msg, True)
@@ -162,10 +175,9 @@ async def status(interaction: Interaction):
 
     global settings
 
-    embed = Embed(color=Color.red())
-    embed.add_field(name = 'AutoRole', value = 'Enabled' if settings['autorole'] else 'Disabled')
-    embed.add_field(name = 'Logging', value = 'Enabled' if settings['logging'] else 'Disabled')
+    names = ['AutoRole', 'Logging']
+    values = [get_toggle_text(settings['autorole']), get_toggle_text(settings['logging'])]
     
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=create_embed('Boring Admin options', names=names, values=values), ephemeral=True)
 
 bot.run(os.getenv('TOKEN'))
