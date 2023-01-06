@@ -1,7 +1,10 @@
-import os, json
+import asyncio
+import json
+import os
+from typing import Optional
 
 import discord
-from discord import Interaction, Member, Message, app_commands, Embed, Color
+from discord import Color, Embed, Interaction, Member, Message, app_commands
 from discord.utils import get
 from dotenv import load_dotenv
 
@@ -89,6 +92,11 @@ def create_embed(title: str, names: list, values: list) -> str:
 
 def get_toggle_text(value: bool) -> str:
     return 'Enabled' if value else 'Disabled'
+
+async def log_and_respond(interaction: Interaction, text: str) -> None:
+    await log(text)
+
+    await interaction.response.send_message(interaction, ephemeral=True)
 
 # Events
 @bot.event
@@ -179,5 +187,31 @@ async def status(interaction: Interaction):
     values = [get_toggle_text(settings['autorole']), get_toggle_text(settings['logging'])]
     
     await interaction.response.send_message(embed=create_embed('Boring Admin options', names=names, values=values), ephemeral=True)
+
+@bot.tree.command()
+@app_commands.describe(
+    member='The member to mute',
+    minutes='The minutes to mute the member for'
+)
+async def mute(interaction: Interaction, member: Optional[discord.Member] = None, minutes: int = 60):
+    if not await is_admin(interaction):
+        return
+    
+    if not member:
+        await interaction.response.send_message('`member` is required!', ephemeral=True)
+        return
+
+    role = get(member.guild.roles, name="Muted")
+
+    await member.add_roles(role)
+
+    await log_and_respond(interaction, f'**{member.name}** has been muted for {minutes} minutes.')
+
+    # Pray it doesnt restart
+    await asyncio.sleep(minutes * 60)
+
+    await log(f'**{member.name}** has been unmuted.')
+
+    await member.remove_roles(role)
 
 bot.run(os.getenv('TOKEN'))
