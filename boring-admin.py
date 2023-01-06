@@ -191,9 +191,10 @@ async def status(interaction: Interaction):
 @bot.tree.command()
 @app_commands.describe(
     member='The member to mute',
-    minutes='The minutes to mute the member for'
+    minutes='The minutes to mute the member for',
+    delete_count='Optional messages to delete from the muted member'
 )
-async def mute(interaction: Interaction, member: Optional[discord.Member] = None, minutes: int = 60):
+async def mute(interaction: Interaction, member: Optional[discord.Member] = None, minutes: int = 60, delete_count: int = 0):
     if not await is_admin(interaction):
         return
     
@@ -206,6 +207,10 @@ async def mute(interaction: Interaction, member: Optional[discord.Member] = None
     await member.add_roles(role)
 
     await log_and_respond(interaction, f'**{member.name}** has been muted for {minutes} minutes.')
+
+    if delete_count > 0:
+        async for message in member.history(limit=delete_count):
+            await message.delete()
 
     # Pray it doesnt restart
     await asyncio.sleep(minutes * 60)
