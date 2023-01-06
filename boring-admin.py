@@ -96,7 +96,7 @@ def get_toggle_text(value: bool) -> str:
 async def log_and_respond(interaction: Interaction, text: str) -> None:
     await log(text)
 
-    await interaction.response.send_message(interaction, ephemeral=True)
+    await interaction.response.send_message(text, ephemeral=True)
 
 # Events
 @bot.event
