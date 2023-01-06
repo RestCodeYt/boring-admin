@@ -1,0 +1,7 @@
+# fly.toml file generated for boring-admin on 2023-01-05T23:52:33+02:00
+
+app = "boring-admin"
+processes = []
+
+[build]
+  builder = "paketobuildpacks/builder:base"

@@ -1,0 +1,1 @@
+# A boring discord administration bot, made for [RestCode](https://youtube.com/@restcode)
