@@ -1,9 +1,7 @@
 import os
 
 import discord
-from discord import Member, Message
-from discord.ext.commands import Bot, has_role
-from discord.ext.commands.errors import CommandError, MissingRole
+from discord import Interaction, Member, Message, app_commands
 from discord.utils import get
 from dotenv import load_dotenv
 
@@ -12,7 +10,30 @@ load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-bot = Bot(command_prefix='R', intents=intents)
+
+MY_GUILD=discord.Object(id=1060640257420296314) # customise
+
+class BoringAdmin(discord.Client):
+    def __init__(self, *, intents: discord.Intents):
+        super().__init__(intents=intents)
+        # A CommandTree is a special type that holds all the application command
+        # state required to make it work. This is a separate class because it
+        # allows all the extra state to be opt-in.
+        # Whenever you want to work with application commands, your tree is used
+        # to store and work with them.
+        # Note: When using commands.Bot instead of discord.Client, the bot will
+        # maintain its own tree instead.
+        self.tree = app_commands.CommandTree(self)
+
+    # In this basic example, we just synchronize the app commands to one guild.
+    # Instead of specifying a guild to every command, we copy over our global commands instead.
+    # By doing so, we don't have to wait up to an hour until they are shown to the end-user.
+    async def setup_hook(self):
+        # This copies the global commands over to your guild.
+        self.tree.copy_global_to(guild=MY_GUILD)
+        await self.tree.sync(guild=MY_GUILD)
+
+bot = BoringAdmin(intents=intents)
 
 # Command variables
 use_autorole = True
@@ -20,12 +41,18 @@ use_autorole = True
 use_logging = True
 logging_channel = 1060665813968892035 # customise
 
-admin_role = 1060641431347281931
-
 # Utility
 async def log(message: str, ignore_state: bool = False):
     if use_logging or ignore_state:
         await bot.get_channel(logging_channel).send(message)
+
+async def is_admin(interaction: Interaction):
+    role = discord.utils.find(lambda r: r.name == 'Admin', interaction.guild.roles)
+
+    if not role in interaction.user.roles:
+        await interaction.response.send_message('You aren\'t an admin!', ephemeral=True)
+        return False
+    return True
 
 # Events
 @bot.event
@@ -51,24 +78,15 @@ async def on_message(message: Message):
         if message.content != 'gm' or has_previous_message:
             await message.delete()
 
-    else:
-        await bot.process_commands(message)
-
 @bot.event
 async def on_message_edit(beforeMessage: Message, afterMessage: Message):
     if afterMessage.channel.name == 'gn':
         if afterMessage.content != 'gn':
             await afterMessage.delete()
 
-    if afterMessage.channel.name == 'gm':
+    elif afterMessage.channel.name == 'gm':
         if afterMessage.content != 'gm':
             await afterMessage.delete()
-
-@bot.event
-async def on_command_error(error: CommandError, ctx: Message):
-    # Ignore known errors
-    if isinstance(error, MissingRole):
-        pass
 
 @bot.event
 async def on_member_join(member: Member):
@@ -78,21 +96,33 @@ async def on_member_join(member: Member):
         await member.add_roles(role)
 
 # Admin commands
-@bot.command()
-@has_role(admin_role)
-async def toggle_autorole(ctx: Message):
+@bot.tree.command()
+async def toggle_autorole(interaction: Interaction):
+    if not await is_admin(interaction):
+        return
+
     global use_autorole
     use_autorole = not use_autorole
 
-    await log(f"✅ AutoRole is now {'disabled' if not use_autorole else 'enabled'}!")
+    log_msg = f"✅ Autorole is now {'disabled' if not use_autorole else 'enabled'}!"
+    
+    await log(log_msg)
 
-@bot.command()
-@has_role(admin_role)
-async def toggle_logging(ctx: Message):
+    await interaction.response.send_message(log_msg, ephemeral=True)
+
+@bot.tree.command()
+async def toggle_logging(interaction: Interaction):
+    if not await is_admin(interaction):
+        return
+
     global use_logging
     use_logging = not use_logging
 
+    log_msg = f"✅ Logging is now {'disabled' if not use_logging else 'enabled'}!"
+
     # Override state to inform either way
-    await log(f"✅ Logging is now {'disabled' if not use_logging else 'enabled'}!", True)
+    await log(log_msg, True)
+
+    await interaction.response.send_message(log_msg, ephemeral=True)
 
 bot.run(os.getenv('TOKEN'))
